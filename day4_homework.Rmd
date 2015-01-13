@@ -1,0 +1,149 @@
+---
+title: "Day 4 Homework"
+output: html_document
+---
+
+##Katti McNally, HW4
+
+```{r}
+library(reshape2)
+```
+
+1. Change the column names of your data to something easier to work with.  If you like your column names, change them into something else reasonable, just for practice.
+
+```{r}
+candidate <- read.csv("candidate.csv")
+cand.oldnames <- colnames(candidate)
+colnames(candidate)[2] <- "name"
+colnames(candidate)[3] <- "district"
+colnames(candidate)[4] <- "experience"
+colnames(candidate)[5] <- "party"
+colnames(candidate)[6] <- "per.wom.stateleg"
+colnames(candidate)[9] <- "total.disburse"
+colnames(candidate)[10] <- "total.receipt"
+colnames(candidate)[12] <- "total.pac.contrib"
+colnames(candidate)[13] <- "primary.win"
+colnames(candidate)[14] <- "gen.win"
+cand.newnames <- colnames(candidate)
+data.frame(cand.oldnames, cand.newnames)
+```
+
+2. List ALL the issues you can see where it looks like your data is being read in a weird way.  If your data looks perfect, find some way to mess it up :-)
+
+```{r}
+summary(candidate)
+class(candidate$primary.win)
+class(candidate$gen.win)
+class(candidate$gen.elect.pct)
+class(candidate$cand.gender) #should be factor
+class(candidate$party) #should be factor, relabel 
+class(candidate$name) #should be character
+class(candidate$experience) #should be factor, max should be 1, not 11
+class(candidate$district)
+```
+
+3. Pick one or two of the most egregious or problematic of the issues in #2 and fix them.
+
+```{r}
+candidate$name <- as.character(candidate$name)
+
+candidate$experience <- as.factor(candidate$experience)
+candidate$experience[candidate$experience == 11] <- 1
+summary(candidate$experience)
+levels(candidate$experience)
+candidate.1 <- subset(candidate, experience != "11")
+summary(candidate.1$experience)
+candidate.2 <- droplevels(candidate.1)
+summary(candidate.2$experience)
+summary(candidate.2)
+
+candidate <- candidate.2
+summary(candidate)
+```
+
+4. Check for NAs, and report where you see them (try to pinpoint where they are, not just "5 NAs in column seven".
+
+```{r}
+summary(candidate)
+#there are 4 NAs in total.disburse, total.receipt, total.indiv.contrib, and total.pac.distrib.  Presumable these are in the same four rows, but should check just in case...
+candidate.a <- candidate[!is.na(candidate$total.disburse), ]
+summary(candidate.a)
+#all of the NAs for those four variables are in the same row
+#there are also 245 NAs in gen.elect.pct.  These are all the observations for candidates that ran in the primary, but not in the general
+
+#checking which NAs...
+#which(is.na(mydata[, 1]))
+
+#another way--returns TRUE and FALSE vector for every row of the data that has no NAs
+#complete.cases(mydata)
+#mydata[!complete.cases(mydata), ]
+#which(!complete.cases(mydata))
+```
+
+5. Decide what you think you should do about the NAs, and say why.  If you can, try to implement this decision.
+
+```{r}
+#eliminate the four rows with NAs for the financials
+candidate <- candidate.a
+summary(candidate)
+#it is not surprising that gen.elect.pct has so many NAs, since not all of the candidates in the dataset ran in the general election.  I'm going to make a subset of the data that only has the candidates with values for gen.elect.pct, rather than just getting rid of the column
+gen.candidate <- candidate[!is.na(candidate$gen.elect.pct), ]
+summary(gen.candidate)
+```
+
+6. Remove any problematic rows and/or columns.  Say why you want to remove them.  If there aren't any problems, describe why you think there are no problems.
+
+- I don't think are any rows are columns that need to be removed, now that the NAs have been taken care of.  The rest of them look as they should.
+
+7. Re-code at least one factor.  Provide a table that shows the correspondence between old levels and new levels.
+
+```{r}
+class(candidate$party)
+candidate$party <- as.factor(candidate$party)
+oldlevels <- levels(candidate$party)
+oldlevels
+levels(candidate$party) <- c("Democrat", "Republican")
+levels(candidate$party)
+newlevels <- levels(candidate$party)
+newlevels
+data.frame(oldlevels, newlevels)
+```
+
+8. Run TWO DIFFERENT simple analyses or statistical tests, such as linear regression (`lm()`), logistic regression (`glm()`), correlation test (`cor.test()`), t-test (`t.test()`), or non-parametric tests (e.g., `wilcox.test()`).  For each of these:
+  - Describe why you are doing this analysis, i.e., what question is it answering?
+  - I won't judge you on statistical expertise!  (though I will make comments if I think I can be helpful)
+  - Report some key statistics from the analysis, using inline code
+
+- (1) t-test to evaluate if female republican candidates have a ideology score (cfscore) that is statistically different from male republican candidates on average
+```{r}
+female <- candidate$cfscore[candidate$cand.gender == 1 & candidate$party == "Republican"]
+male <- candidate$cfscore[candidate$cand.gender == 0 & candidate$party == "Republican"]
+
+t.test(female, male)
+
+ttest.results <- t.test(female, male)
+summary(ttest.results)
+
+names(ttest.results)
+est.female <- ttest.results$estimate[1]
+est.male <- ttest.results$estimate[2]
+p.value <- ttest.results$p.value
+t.stat <- ttest.results$statistic
+```
+  - The mean cfscore for female Republican candidates was `r round(est.female, 4)`, while the cfscore for male Republican candidates was `r round(est.male, 4)`.  These two values are not statistically different from one another, as indicated by the small t statistic of `r round(t.stat, 4)` and the high p value of `r round(p.value, 4)`.
+
+
+- (2) logistic regression to determine if male Republican candidates are more likely to win their primary elections
+```{r}
+logit.results <- glm(formula = primary.win ~ experience + per.wom.stateleg + cfscore + cand.gender + total.receipt, data = candidate, subset = party == "Republican",  family = "binomial")
+
+summary(logit.results)
+logit.summary <- summary(logit.results)
+
+names(logit.summary)
+
+est.female <- logit.summary$coefficients["cand.gender", "Estimate"]
+st.err.female <- logit.summary$coefficients["cand.gender", "Std. Error"]
+p.value.female <- logit.summary$coefficients["cand.gender", "Pr(>|z|)"]
+```
+  - Female Republican candidates are less likely to win their primary election, as shown by the estimate of `r round(est.female, 4)`.  However, this is just outside of conventional levels of statistical significance with a p value of `r round(p.value.female, 2)` and a standard error of `r round(st.err.female, 4)`.

@@ -1,0 +1,107 @@
+---
+title: "Day 3 Homework"
+author: "Katti McNally"
+date: "Thursday, January 08, 2015"
+output: html_document
+---
+
+```{r}
+library(reshape2)
+install.packages("dplyr")
+library(dplyr)
+```
+
+#using updated dataset
+
+*Read data in*
+```{r}
+candidate <- read.csv(file = "candidate.csv", header = TRUE, sep = ",")
+head(candidate)
+colnames(candidate)
+```
+
+# 1) Long and Wide Versions of Data
+
+## Long Data
+```{r}
+melt <- melt(candidate,id.vars=c("cycle", "District", "Name"),measure.vars = c( "total.disbursements", "total.receipts", "total.indiv.contrib", "total.pac.contribs"), variable.name = "campaignFinance", value.name = "Dollars", na.rm = TRUE)
+```
+
+##Wide Data
+```{r}
+cast <- dcast(melt,cycle+District+Name~campaignFinance,value.var ="Dollars")
+```
+
+- casting with a lot of variables
+```{r eval = FALSE}
+
+mydata.wide <- dcast(mydata.long, [80 columns here] ~ split) #split is representing the column you wish to split
+
+columns.keep <- colnames(mydata.long)[1:80]
+columns.keep.pasted <- paste(columns.keep, collapse = " + ")
+my.cast.formula <- as.formula(paste(columns.keep.pasted, "~split"))
+class(my.cast.formula) # "formula"
+
+mydata.wide <- dcast(mydata.long, formula = my.cast.formula)
+
+#working with "everything but"
+sleep[, -1] #leave out the first column
+sleep[, -c(1,2)] #leave out the first two columns
+#this shit also has to be in numbers, not in strings
+
+```
+
+
+# 2) Transforming a variable
+
+## Taking the log of the Dollars column in the melted version
+```{r}
+melt$logDollars <- log(melt$Dollars)
+summary(melt)
+```
+
+# 3) Recoding a factor
+
+## Recoding Party from 100 and 200 to Democrat and Republican
+```{r}
+levels(candidate$Party) <- c("Democrat", "Republican")
+levels(candidate$Party)
+```
+
+# 4) New Factor with values conditional on another variable
+```{r}
+as.factor(candidate$cand.gender)
+candidate$Gender <- "Female" 
+candidate$Gender[candidate$cand.gender != 1] <- "Male"  
+head(candidate)
+```
+
+# 5) Reorder factor levels
+```{r}
+candidate$Gender <- as.factor(candidate$Gender)
+levels(candidate$Gender)
+candidate$Gender <- relevel(candidate$Gender, "Male")
+levels(candidate$Gender)
+```
+
+# 6) Recode factor as multiple dimensions
+
+## Change names to first and last name
+```{r}
+cand.name <- as.factor(candidate$Name)
+candidate.2 <- cbind(candidate, 
+                     colsplit(candidate$Name, pattern = ",", 
+                              names = c("lastName", "firstName")))
+head(candidate.2)
+```
+
+other weird way to do this shit...
+```{r eval = FALSE}
+mydata$var <- ifelse(grepl("left", mydata$var)"back", "front")
+#or something like this...
+```
+
+# 7) Aggregate variable into cell means using `dcast()`
+```{r}
+cast <- dcast(melt,cycle+District~campaignFinance,value.var ="Dollars",fun.aggregate=mean, na.rm = TRUE)
+```
