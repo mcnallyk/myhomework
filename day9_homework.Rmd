@@ -1,0 +1,94 @@
+---
+title: "Day 9 Homework"
+output: html_document
+---
+  Katti McNally
+  
+```{r}
+library(dplyr)
+library(reshape2)
+
+candidate <- read.csv("candidate.csv")
+```
+
+1. Write a function to do a bunch of clean-up and formatting to your data.
+
+```{r}
+cleanup <- function(data) {
+  clean <- { candidate[!is.na(candidate$total.disburse), ] 
+    levels(candidate$Party) <- c("Democrat", "Republican") 
+    melt(candidate, measure.vars = c("total.disbursements", "total.receipts", "total.indiv.contrib", "total.pac.contribs")) 
+    cbind(candidate, colsplit(as.factor(candidate$Name), pattern = ",", names = c("lastName", "firstName")))
+    }
+print(summary(clean))
+}
+```
+
+2. Make sure this function works on your data.
+
+```{r}
+cleanup(candidate)
+```
+
+3. Get some subset of your data, or find a similar-but-not-identical data set.  Change up the column order.  Re-run your function on this new data.  Does it work?
+
+```{r}
+candidate.1 <- candidate[1:100, c(9:12, 1:8, 13)]
+summary(candidate.1)
+
+cleanup(candidate.1)
+```
+
+4. Fix your function to be able to work on the new data.
+
+```{r}
+cleanup <- function(data) {
+  clean <- { data[!is.na(data$total.disburse), ] 
+    levels(data$Party) <- c("Democrat", "Republican") 
+    melt(data, measure.vars = c("total.disbursements", "total.receipts", "total.indiv.contrib", "total.pac.contribs")) 
+    cbind(data, colsplit(as.factor(data$Name), pattern = ",", names = c("lastName", "firstName")))
+    }
+print(summary(clean))
+}
+
+cleanup(candidate.1)
+```
+
+5. Write a function to do some kind of summary stat, and use the `dplyr` functions to run this function over groups of your data.
+
+```{r}
+means <- function(data) {
+  result <- {
+  data %>%
+  melt(measure.var = 9:12, value.name = "dollars", variable.name = "Financials") %>%
+  filter(!is.na(dollars)) %>%
+  summarize(mean = mean(dollars))
+  }
+result
+}
+
+means(candidate)
+means(candidate.1)
+```
+
+## Additional stuff
+
+```{r eval = FALSE}
+
+myfunc <- function(data = mydata, column = "variable")
+  
+mydata[, column] #"$" doesn't as well to identify columns in a function...
+
+x <- 1:10
+"x"
+get("x") #this lets you recover the object with this name (the object represented by the string "x")
+
+miris <- iris
+myfunc <- function(data, colname){
+  library(dplyr)
+  output <- filter(data, data[, colname] == "setosa")
+  output
+}
+
+```
+
